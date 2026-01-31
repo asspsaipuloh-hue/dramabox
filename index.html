@@ -2,27 +2,19 @@
 <html lang="id" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dramabox Clone - Nonton Drama</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>StreamID - TV & DramaBox</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HLS.js -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    colors: {
-                        primary: '#FF2965', secondary: '#4D65ED', dark: '#0f172a', darker: '#020617', card: '#1e293b',
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.5s ease-out', 'slide-up': 'slideUp 0.4s ease-out',
-                    },
+                    colors: { primary: '#3b82f6', secondary: '#ef4444', dark: '#0f172a', darker: '#020617', card: '#1e293b' },
+                    animation: { 'fade-in': 'fadeIn 0.3s ease-out', 'slide-up': 'slideUp 0.4s ease-out' },
                     keyframes: {
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
                         slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
@@ -33,387 +25,229 @@
     </script>
 
     <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #FF2965; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .glass {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .loader {
-            border: 3px solid rgba(255,255,255,0.1);
-            border-left-color: #FF2965;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
+        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .loader { border: 3px solid rgba(255,255,255,0.05); border-left-color: #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        body {
-            background-color: #020617;
-            color: #f8fafc;
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .video-container {
-            position: relative;
-            padding-bottom: 56.25%;
-            height: 0;
-            background: #000;
-        }
-        .video-container video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
+        #playerOverlay { background-color: #000; z-index: 9999; height: 100dvh; width: 100vw; position: fixed; top: 0; left: 0; display: none; }
+        #tvFrame { width: 100%; height: 100%; border: none; }
+        .no-scroll { overflow: hidden; }
+        .tab-active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col">
 
-    <!-- Header -->
-    <header class="fixed top-0 w-full z-50 glass">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2 cursor-pointer" onclick="app.goHome()">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary/30">D</div>
-                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary hidden sm:block">Dramabox<span class="text-white text-sm font-normal">Clone</span></h1>
+    <header class="fixed top-0 w-full z-50 glass h-16 flex items-center justify-between px-4 shadow-lg">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="app.goHome()">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white">
+                <i class="fas fa-play-circle"></i>
             </div>
-
-            <div class="flex-1 max-w-md relative group">
-                <input type="text" id="searchInput" placeholder="Cari drama..." class="w-full bg-slate-800/50 text-sm text-white px-4 py-2 pl-10 rounded-full border border-slate-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
-                <i class="fas fa-search absolute left-3.5 top-2.5 text-slate-400 group-focus-within:text-primary"></i>
-                <button onclick="app.clearSearch()" id="clearSearchBtn" class="hidden absolute right-3 top-2 text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <div class="flex flex-col">
+                <h1 class="text-base font-bold text-white leading-none">STREAMID</h1>
+                <span class="text-[10px] text-slate-400 font-medium">TV & DramaBox</span>
             </div>
-            <button class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"><i class="fas fa-user text-slate-300"></i></button>
         </div>
+        
+        <nav class="flex gap-4">
+            <button onclick="app.setMode('tv')" id="btn-tv" class="text-sm font-bold pb-1 tab-active">Live TV</button>
+            <button onclick="app.setMode('drama')" id="btn-drama" class="text-sm font-bold pb-1 text-slate-400">DramaBox</button>
+        </nav>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-grow pt-20 pb-20 px-4 max-w-7xl mx-auto w-full relative min-h-screen">
-        <!-- Loader -->
+    <main class="flex-grow pt-24 pb-24 px-4 max-w-6xl mx-auto w-full">
+        
         <div id="globalLoader" class="fixed inset-0 z-[60] bg-darker flex flex-col items-center justify-center transition-opacity duration-300">
             <div class="loader mb-4"></div>
-            <p class="text-slate-400 text-sm animate-pulse">Memuat Data...</p>
+            <p class="text-slate-400 text-sm">Menyiapkan konten...</p>
         </div>
-        <!-- Content -->
-        <div id="appContent" class="opacity-0 transition-opacity duration-500"></div>
+        
+        <div class="mb-6 relative">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+            <input type="text" id="searchInput" placeholder="Cari channel atau drama..." 
+                class="w-full bg-card border border-slate-700/50 text-slate-200 text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-primary/50">
+        </div>
+
+        <div id="appContent">
+            <div class="flex items-center justify-between mb-4">
+                <h2 id="sectionTitle" class="text-white font-bold text-lg flex items-center gap-2">Semua Channel</h2>
+            </div>
+            <div id="mainGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                </div>
+        </div>
     </main>
 
-    <!-- Bottom Nav -->
-    <nav class="fixed bottom-0 w-full bg-darker/90 backdrop-blur-md border-t border-slate-800 z-40 md:hidden">
-        <div class="flex justify-around items-center h-16">
-            <button onclick="app.goHome()" class="flex flex-col items-center justify-center w-full h-full text-primary transition-colors" id="nav-home"><i class="fas fa-home text-lg mb-1"></i><span class="text-[10px]">Beranda</span></button>
-            <button class="flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-white"><i class="fas fa-compass text-lg mb-1"></i><span class="text-[10px]">Eksplor</span></button>
-            <button class="flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-white"><i class="fas fa-history text-lg mb-1"></i><span class="text-[10px]">Riwayat</span></button>
+    <div id="playerOverlay" class="flex flex-col">
+        <div class="absolute top-0 left-0 w-full z-20 bg-gradient-to-b from-black/90 p-5 flex justify-between items-center">
+            <button onclick="app.closePlayer()" class="text-white bg-white/10 w-10 h-10 rounded-full"><i class="fas fa-arrow-left"></i></button>
+            <h2 id="playerTitle" class="text-white font-bold">Memutar...</h2>
+            <div class="w-10"></div>
         </div>
-    </nav>
 
-    <!-- Toast -->
-    <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl z-[70] transition-all duration-300 translate-y-20 opacity-0 flex items-center gap-3 border border-slate-700">
-        <i class="fas fa-info-circle text-primary"></i>
-        <span id="toastMsg" class="text-sm font-medium">Pesan</span>
-    </div>
+        <div class="flex-grow bg-black flex items-center justify-center">
+            <iframe id="tvFrame" src="" allowfullscreen></iframe>
+        </div>
 
-    <!-- Video Player -->
-    <div id="playerOverlay" class="fixed inset-0 z-[80] bg-darker hidden flex flex-col">
-        <div class="h-14 bg-black/90 flex items-center justify-between px-4 z-10 shrink-0">
-            <button onclick="app.closePlayer()" class="text-white hover:text-primary flex items-center gap-2"><i class="fas fa-arrow-left"></i> <span class="text-sm font-medium">Kembali</span></button>
-            <span class="text-sm font-semibold text-slate-200 truncate max-w-[200px]" id="playerTitle">Judul</span>
-            <div class="w-8"></div>
-        </div>
-        <div class="flex-grow bg-black flex items-center justify-center relative w-full">
-            <div id="videoContainer" class="w-full h-full video-container"></div>
-            <div id="playerLoading" class="absolute inset-0 flex items-center justify-center bg-black z-20">
-                <div class="loader"></div>
-            </div>
-        </div>
-        <div class="h-48 bg-slate-900 border-t border-slate-800 p-4 overflow-y-auto no-scrollbar shrink-0">
-            <h3 class="text-white text-sm font-bold mb-3">Episodes</h3>
-            <div id="playerEpisodeList" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2"></div>
+        <div id="dramaControls" class="bg-slate-900 p-4 hidden">
+            <p class="text-white text-xs mb-2">Pilih Episode:</p>
+            <div id="chapterList" class="flex gap-2 overflow-x-auto pb-2">
+                </div>
         </div>
     </div>
 
     <script>
         const app = {
-            // ⚠️ PERUBAHAN PENTING: API_BASE sekarang mengarah ke Proxy Lokal
-            API_BASE: "http://localhost:3000/api", 
+            mode: 'tv', // 'tv' or 'drama'
+            apiUrl: 'https://api.sansekai.my.id/api/melolo', // Integrasi API Melolo
             
-            state: { view: 'home', currentData: null, searchQuery: '' },
-            elements: {
-                content: document.getElementById('appContent'),
-                loader: document.getElementById('globalLoader'),
-                input: document.getElementById('searchInput'),
-                toast: document.getElementById('toast'),
-                toastMsg: document.getElementById('toastMsg'),
-                playerOverlay: document.getElementById('playerOverlay'),
-                videoContainer: document.getElementById('videoContainer'),
-                playerTitle: document.getElementById('playerTitle'),
-                playerLoading: document.getElementById('playerLoading'),
-                playerEpisodeList: document.getElementById('playerEpisodeList'),
-                clearSearchBtn: document.getElementById('clearSearchBtn'),
-            },
+            channels: [
+                { id: 'rcti', name: 'RCTI', group: 'MNC', bg: 'bg-blue-600', icon: 'fas fa-tv', embed: 'https://sindikasi.inews.id/embed/video/YWdlbnQ9ZGVza3RvcCZ1cmw9aHR0cHMlM0ElMkYlMkZlbWJlZC5yY3RpcGx1cy5jb20lMkZsaXZlJTJGcmN0aSUyRmluZXdzaWQmaGVpZ2h0PTEwMCUyNSZ3aWR0aD0xMDAlMjU=' },
+                { id: 'kompastv', name: 'Kompas TV', group: 'KG Media', bg: 'bg-sky-600', icon: 'fas fa-globe-asia', embed: 'https://www.youtube.com/embed/DOOrIxw5xOw?autoplay=1' },
+                { id: 'transtv', name: 'Trans TV', group: 'Trans', bg: 'bg-red-500', icon: 'fas fa-tv', embed: 'https://www.vidio.com/embed/203?autoplay=true' },
+                { id: 'sctv', name: 'SCTV', group: 'Emtek', bg: 'bg-purple-600', icon: 'fas fa-tv', embed: 'https://www.vidio.com/embed/204?autoplay=true' }
+            ],
 
             init() {
-                let timeout = null;
-                this.elements.input.addEventListener('input', (e) => {
-                    clearTimeout(timeout);
-                    this.state.searchQuery = e.target.value.trim();
-                    if(this.state.searchQuery.length > 0) this.elements.clearSearchBtn.classList.remove('hidden');
-                    else this.elements.clearSearchBtn.classList.add('hidden');
-                    timeout = setTimeout(() => {
-                        if (this.state.searchQuery.length > 0) this.fetchSearch(this.state.searchQuery);
-                        else this.goHome();
-                    }, 600);
-                });
-                this.elements.clearSearchBtn.addEventListener('click', () => this.clearSearch());
-                this.fetchHome();
+                document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e.target.value));
+                this.setMode('tv');
+                setTimeout(() => document.getElementById('globalLoader').classList.add('hidden'), 1000);
             },
 
-            async fetchHome() {
-                if (this.state.view === 'home' && this.state.currentData) return this.showLoader(false);
-                this.showLoader(true);
-                this.state.view = 'home';
-                try {
-                    // Fetch via Proxy Lokal
-                    const url = `${this.API_BASE}/home?page=1&size=10`;
-                    const res = await fetch(url);
-                    if (!res.ok) throw new Error("Gagal mengambil data");
-                    const json = await res.json();
-                    if (json && json.success && json.data) {
-                        this.state.currentData = json.data;
-                        this.renderHome(json.data);
-                    } else {
-                        throw new Error("Format JSON salah");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    this.showToast('Gagal memuat data. Pastikan server.js jalan!');
-                } finally {
-                    this.showLoader(false);
-                }
-            },
-
-            async fetchSearch(query) {
-                this.showLoader(true);
-                this.state.view = 'search';
-                try {
-                    // Biasanya endpoint search Dramabox butuh parameter khusus
-                    // Kita coba struktur standar, jika gagal fallback ke filter local
-                    const url = `${this.API_BASE}/search?keyword=${encodeURIComponent(query)}&page=1&size=10`;
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    
-                    let results = [];
-                    if (json && json.success && json.data) {
-                        results = json.data;
-                    } else {
-                        // Fallback Filter Data dari Home jika API Search error/beda format
-                        results = this.state.currentData.filter(item => item.bookName.toLowerCase().includes(query.toLowerCase()));
-                    }
-                    this.renderSearchResults(results, results.length);
-                } catch (error) {
-                    console.error(error);
-                    this.showToast('Gagal mencari.');
-                } finally {
-                    this.showLoader(false);
-                }
-            },
-
-            async fetchDetail(bookId) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                this.renderSkeletonDetail();
+            setMode(m) {
+                this.mode = m;
+                document.getElementById('btn-tv').className = m === 'tv' ? 'text-sm font-bold pb-1 tab-active' : 'text-sm font-bold pb-1 text-slate-400';
+                document.getElementById('btn-drama').className = m === 'drama' ? 'text-sm font-bold pb-1 tab-active' : 'text-sm font-bold pb-1 text-slate-400';
                 
-                try {
-                    // Fetch Detail via Proxy
-                    const detailUrl = `${this.API_BASE}/detail/${bookId}/v2`;
-                    const res = await fetch(detailUrl);
-                    const json = await res.json();
-
-                    // Fetch Chapters via Proxy
-                    const chapUrl = `${this.API_BASE}/chapters/${bookId}`;
-                    const chapRes = await fetch(chapUrl);
-                    const chapJson = await chapRes.json();
-
-                    let bookInfo = this.state.currentData?.find(b => b.bookId == bookId);
-                    
-                    if (chapJson && chapJson.success && chapJson.data) {
-                        if (!bookInfo) bookInfo = { bookId, bookName: "Drama Box", coverWap: "https://picsum.photos/300/450", introduction: "" };
-                        this.renderDetail(bookInfo, chapJson.data);
-                    } else {
-                        throw new Error("Gagal mengambil chapters");
-                    }
-
-                } catch (error) {
-                    console.error(error);
-                    this.showToast('Gagal memuat detail.');
-                    setTimeout(() => this.goHome(), 1000);
-                }
-            },
-
-            async playVideo(bookId, chapterIndex, chapterName, chapterId) {
-                this.elements.playerOverlay.classList.remove('hidden');
-                this.elements.playerTitle.innerText = chapterName || "Memutar...";
-                this.elements.playerLoading.classList.remove('hidden');
-                this.elements.videoContainer.innerHTML = '';
-                try {
-                    // Fetch Stream URL via Proxy
-                    const episodeNumber = parseInt(chapterIndex) + 1;
-                    const url = `${this.API_BASE}/stream/${bookId}/${episodeNumber}`;
-                    const res = await fetch(url);
-                    const json = await res.json();
-
-                    if (json && json.success && json.data && json.data.video && json.data.video.url) {
-                        const videoUrl = json.data.video.url;
-                        this.elements.playerLoading.classList.add('hidden');
-                        this.renderVideoPlayer(videoUrl);
-                    } else {
-                        throw new Error("URL Video tidak ditemukan");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    this.elements.playerLoading.classList.add('hidden');
-                    this.elements.videoContainer.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-slate-400"><i class="fas fa-exclamation-triangle text-4xl mb-4 text-red-500"></i><p class="text-sm">Gagal memuat video.</p><p class="text-xs mt-2 opacity-50">Cek Console untuk detail error.</p></div>`;
-                }
-            },
-
-            renderVideoPlayer(url) {
-                const video = document.createElement('video');
-                video.controls = true;
-                video.autoplay = true;
-                video.className = "w-full h-full bg-black";
-                
-                if (url.includes('.m3u8') && Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = url;
-                    video.addEventListener('loadedmetadata', () => video.play());
+                if (m === 'tv') {
+                    document.getElementById('sectionTitle').innerText = "Live TV Indonesia";
+                    this.renderTV();
                 } else {
-                    video.src = url;
+                    document.getElementById('sectionTitle').innerText = "DramaBox Populer";
+                    this.fetchDramas();
                 }
-                this.elements.videoContainer.appendChild(video);
             },
 
-            // --- RENDERERS ---
-            renderHome(data) {
-                if (!data) return;
-                this.elements.content.innerHTML = `
-                    <div class="animate-fade-in space-y-8 pb-8">
-                        <section>
-                            <h2 class="text-lg font-bold text-white mb-3 border-l-4 border-primary pl-3">Drama Terbaru</h2>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                                ${data.map(item => this.createGridCard(item)).join('')}
-                            </div>
-                        </section>
-                        <div class="flex justify-center pt-8"><button onclick="app.fetchHome()" class="px-6 py-2 rounded-full bg-slate-800 text-slate-300 hover:bg-primary hover:text-white transition-colors text-sm font-medium shadow-lg shadow-primary/10"><i class="fas fa-sync-alt mr-2"></i> Muat Ulang</button></div>
-                    </div>`;
+            renderTV() {
+                const grid = document.getElementById('mainGrid');
+                grid.innerHTML = this.channels.map(c => `
+                    <div onclick="app.playTV('${c.embed}', '${c.name}')" class="bg-card p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-3 cursor-pointer hover:scale-105 transition-all">
+                        <div class="w-12 h-12 ${c.bg} rounded-lg flex items-center justify-center text-xl text-white"><i class="${c.icon}"></i></div>
+                        <span class="text-white font-bold text-sm">${c.name}</span>
+                    </div>
+                `).join('');
             },
 
-            renderSearchResults(data, total) {
-                if (!data || data.length === 0) {
-                    this.elements.content.innerHTML = `<div class="flex flex-col items-center justify-center h-[50vh] text-slate-500 animate-fade-in"><i class="fas fa-search text-4xl mb-4 opacity-50"></i><p>Tidak ditemukan drama "${this.state.searchQuery}"</p></div>`;
-                    return;
-                }
-                this.elements.content.innerHTML = `
-                    <div class="animate-fade-in space-y-4 pb-8">
-                        <div class="flex justify-between items-center mb-4"><h2 class="text-lg font-bold text-white">Hasil: "${this.state.searchQuery}"</h2><span class="text-xs text-slate-400">${total} hasil</span></div>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${data.map(item => this.createGridCard(item)).join('')}</div>
-                    </div>`;
-            },
-
-            createGridCard(item) {
-                const id = item.bookId;
-                const image = item.coverWap || item.cover || `https://picsum.photos/seed/${id}/300/450`;
-                const title = item.bookName || item.name || "Tanpa Judul";
-                const tags = item.tags || item.tagV3s || [];
-                const tag1 = tags.length > 0 ? tags[0].tagName : 'Drama';
-                return `
-                    <div onclick="app.fetchDetail('${id}')" class="group relative rounded-xl overflow-hidden cursor-pointer bg-slate-800 shadow-md animate-slide-up hover:shadow-xl hover:shadow-primary/10 transition-all duration-300">
-                        <div class="aspect-[2/3] overflow-hidden relative">
-                            <img src="${image}" alt="${title}" loading="lazy" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onerror="this.src='https://picsum.photos/seed/${id}/300/450'">
-                        </div>
-                        <div class="p-3 bg-slate-800 border-t border-slate-700/50">
-                            <h3 class="text-white text-sm font-medium line-clamp-2 leading-snug mb-2 group-hover:text-primary transition-colors min-h-[36px]">${title}</h3>
-                            <div class="flex justify-between items-center mt-1"><span class="text-xs text-slate-400 truncate max-w-[60%]">${tag1}</span></div>
-                        </div>
-                    </div>`;
-            },
-
-            renderDetail(bookInfo, chapters) {
-                const id = bookInfo.bookId;
-                const title = bookInfo.bookName || bookInfo.name;
-                const cover = bookInfo.coverWap || bookInfo.cover;
-                const intro = bookInfo.introduction;
-                const episodesHtml = chapters.map((chap, idx) => `<button onclick="app.playVideo('${id}', '${idx}', '${chap.chapterName}', '${chap.chapterId}')" class="px-4 py-2 bg-slate-800 hover:bg-primary hover:text-white text-slate-300 text-sm rounded-lg transition-all duration-200 border border-slate-700 hover:border-primary text-center truncate">${chap.chapterName}</button>`).join('');
+            async fetchDramas() {
+                const grid = document.getElementById('mainGrid');
+                grid.innerHTML = '<div class="col-span-full text-center p-10"><div class="loader mx-auto"></div></div>';
                 
-                this.elements.content.innerHTML = `
-                    <div class="animate-fade-in pb-20">
-                        <div class="relative mb-6">
-                            <div class="absolute inset-0 h-[400px] overflow-hidden -z-10 rounded-b-[3rem]"><img src="${cover}" class="w-full h-full object-cover opacity-40 blur-2xl scale-110"><div class="absolute inset-0 bg-gradient-to-t from-darker via-darker/90 to-transparent"></div></div>
-                            <div class="pt-6 px-2">
-                                <button onclick="app.goHome()" class="text-white bg-white/10 hover:bg-white/20 backdrop-blur-md w-10 h-10 rounded-full flex items-center justify-center mb-6 transition-colors"><i class="fas fa-arrow-left"></i></button>
-                                <div class="flex flex-col md:flex-row gap-6">
-                                    <div class="w-48 mx-auto md:mx-0 shrink-0 rounded-xl overflow-hidden shadow-2xl shadow-primary/20 border-2 border-slate-700/50"><img src="${cover}" class="w-full h-auto object-cover"></div>
-                                    <div class="flex-1 text-center md:text-left">
-                                        <h1 class="text-3xl font-bold text-white mb-2">${title}</h1>
-                                        <p class="text-slate-400 text-sm leading-relaxed mb-6">${intro}</p>
-                                        <button onclick="app.playVideo('${id}', '0', 'Episode 1', '${chapters[0]?.chapterId}')" class="w-full md:w-auto bg-gradient-to-r from-primary to-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/25 hover:scale-105 transition-transform flex items-center justify-center gap-2"><i class="fas fa-play"></i> Tonton Eps 1</button>
-                                    </div>
-                                </div>
+                try {
+                    const res = await fetch(`${this.apiUrl}/trending`);
+                    const data = await res.json();
+                    const dramas = data.books || []; // Penyesuaian struktur
+                    
+                    grid.innerHTML = dramas.map(d => `
+                        <div onclick="app.loadDramaDetail('${d.book_id}')" class="bg-card rounded-xl overflow-hidden border border-slate-700 cursor-pointer">
+                            <img src="${d.thumb_url}" class="w-full aspect-[3/4] object-cover">
+                            <div class="p-2">
+                                <p class="text-white font-bold text-xs truncate">${d.book_name}</p>
+                                <p class="text-slate-500 text-[10px]">${d.serial_count || ''} Chapters</p>
                             </div>
                         </div>
-                        <div class="mt-8 px-2">
-                            <div class="flex items-center justify-between mb-4"><h3 class="text-xl font-bold text-white">Daftar Episode</h3><span class="text-xs text-slate-500">${chapters.length} Episode</span></div>
-                            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">${episodesHtml}</div>
+                    `).join('');
+                } catch (e) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-red-500">Gagal memuat drama. Pastikan API aktif.</p>`;
+                }
+            },
+
+            async handleSearch(query) {
+                if (this.mode === 'tv') return; // TV search manual logic can be added
+                if (query.length < 3) return this.fetchDramas(); // Kembali ke popular jika query pendek
+
+                const grid = document.getElementById('mainGrid');
+                grid.innerHTML = '<div class="col-span-full text-center p-10"><div class="loader mx-auto"></div></div>';
+                
+                try {
+                    const res = await fetch(`${this.apiUrl}/search?query=${query}`);
+                    const data = await res.json();
+                    const dramas = data.data?.search_data || data.books || []; // Penyesuaian struktur
+                    
+                    grid.innerHTML = dramas.map(d => `
+                        <div onclick="app.loadDramaDetail('${d.book_id}')" class="bg-card rounded-xl overflow-hidden border border-slate-700 cursor-pointer">
+                            <img src="${d.thumb_url}" class="w-full aspect-[3/4] object-cover">
+                            <div class="p-2">
+                                <p class="text-white font-bold text-xs truncate">${d.book_name}</p>
+                                <p class="text-slate-500 text-[10px]">${d.serial_count || ''} Chapters</p>
+                            </div>
                         </div>
-                    </div>`;
+                    `).join('');
+                } catch (e) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-red-500">Gagal memuat hasil pencarian.</p>`;
+                }
             },
 
-            renderSkeletonDetail() {
-                this.elements.content.innerHTML = `<div class="animate-pulse pt-6 px-4 space-y-6"><div class="w-10 h-10 bg-slate-800 rounded-full mb-4"></div><div class="flex flex-col md:flex-row gap-8"><div class="w-48 h-72 bg-slate-800 rounded-xl mx-auto md:mx-0"></div><div class="flex-1 space-y-4"><div class="h-8 bg-slate-800 rounded w-3/4"></div><div class="space-y-2 pt-4"><div class="h-4 bg-slate-800 rounded"></div><div class="h-4 bg-slate-800 rounded"></div><div class="h-4 bg-slate-800 rounded w-5/6"></div></div></div></div></div>`;
+            async loadDramaDetail(id) {
+                try {
+                    const res = await fetch(`${this.apiUrl}/detail?bookId=${id}`);
+                    const detail = await res.json();
+                    const chapters = detail.data.video_list || []; // Penyesuaian struktur
+                    
+                    this.openDramaPlayer(chapters, detail.data.series_title);
+                } catch (e) { alert("Gagal memuat episode"); }
             },
 
-            showLoader(show) {
-                if (show) this.elements.loader.classList.remove('opacity-0', 'pointer-events-none');
-                else { this.elements.loader.classList.add('opacity-0', 'pointer-events-none'); this.elements.content.classList.remove('opacity-0'); }
+            playTV(url, name) {
+                document.getElementById('playerTitle').innerText = name;
+                document.getElementById('dramaControls').classList.add('hidden');
+                document.getElementById('tvFrame').src = url;
+                document.getElementById('playerOverlay').style.display = 'flex';
+                document.body.classList.add('no-scroll');
             },
-            showToast(msg) {
-                const t = this.elements.toast;
-                this.elements.toastMsg.innerText = msg;
-                t.classList.remove('translate-y-20', 'opacity-0');
-                setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
+
+            openDramaPlayer(chapters, title) {
+                document.getElementById('playerTitle').innerText = title || "DramaBox";
+                document.getElementById('dramaControls').classList.remove('hidden');
+                
+                const list = document.getElementById('chapterList');
+                list.innerHTML = chapters.map((ch, idx) => `
+                    <button onclick="app.playChapter('${ch.vid}')" class="flex-shrink-0 bg-primary px-4 py-2 rounded text-xs font-bold text-white">
+                        Ep ${ch.vid_index || idx + 1}
+                    </button>
+                `).join('');
+
+                // Mainkan episode 1 otomatis
+                if (chapters.length > 0) this.playChapter(chapters[0].vid);
+                
+                document.getElementById('playerOverlay').style.display = 'flex';
+                document.body.classList.add('no-scroll');
             },
-            goHome() {
-                this.state.view = 'home';
-                this.state.searchQuery = '';
-                this.elements.input.value = '';
-                this.elements.clearSearchBtn.classList.add('hidden');
-                this.fetchHome();
+
+            async playChapter(vid) {
+                try {
+                    const res = await fetch(`${this.apiUrl}/stream?videoId=${vid}`);
+                    const data = await res.json();
+                    // Asumsi respons memiliki 'url' sebagai link streaming (mp4/m3u8)
+                    // Jika struktur berbeda, sesuaikan di sini (misal data.data.url)
+                    document.getElementById('tvFrame').src = data.url;
+                } catch (e) {
+                    alert("Gagal memuat streaming video.");
+                }
             },
-            clearSearch() {
-                this.elements.input.value = '';
-                this.elements.clearSearchBtn.classList.add('hidden');
-                if (this.state.view === 'search') this.goHome();
-            },
+
             closePlayer() {
-                this.elements.playerOverlay.classList.add('hidden');
-                this.elements.videoContainer.innerHTML = ''; 
+                document.getElementById('playerOverlay').style.display = 'none';
+                document.getElementById('tvFrame').src = '';
+                document.body.classList.remove('no-scroll');
+            },
+
+            goHome() {
+                this.setMode('tv');
             }
         };
 
-        document.addEventListener('DOMContentLoaded', () => { app.init(); });
+        document.addEventListener('DOMContentLoaded', () => app.init());
     </script>
 </body>
 </html>
