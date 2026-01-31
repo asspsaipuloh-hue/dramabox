@@ -1,253 +1,40 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>StreamID - TV & DramaBox</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: { primary: '#3b82f6', secondary: '#ef4444', dark: '#0f172a', darker: '#020617', card: '#1e293b' },
-                    animation: { 'fade-in': 'fadeIn 0.3s ease-out', 'slide-up': 'slideUp 0.4s ease-out' },
-                    keyframes: {
-                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .loader { border: 3px solid rgba(255,255,255,0.05); border-left-color: #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #playerOverlay { background-color: #000; z-index: 9999; height: 100dvh; width: 100vw; position: fixed; top: 0; left: 0; display: none; }
-        #tvFrame { width: 100%; height: 100%; border: none; }
-        .no-scroll { overflow: hidden; }
-        .tab-active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot Saya</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Puter.js CDN -->
+    <script src="https://js.puter.com/v2/"></script>
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+    <!-- TensorFlow.js untuk ML sederhana (belajar sentiment) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 </head>
-<body class="antialiased min-h-screen flex flex-col">
-
-    <header class="fixed top-0 w-full z-50 glass h-16 flex items-center justify-between px-4 shadow-lg">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="app.goHome()">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white">
-                <i class="fas fa-play-circle"></i>
-            </div>
-            <div class="flex flex-col">
-                <h1 class="text-base font-bold text-white leading-none">STREAMID</h1>
-                <span class="text-[10px] text-slate-400 font-medium">TV & DramaBox</span>
-            </div>
-        </div>
-        
-        <nav class="flex gap-4">
-            <button onclick="app.setMode('tv')" id="btn-tv" class="text-sm font-bold pb-1 tab-active">Live TV</button>
-            <button onclick="app.setMode('drama')" id="btn-drama" class="text-sm font-bold pb-1 text-slate-400">DramaBox</button>
-        </nav>
-    </header>
-
-    <main class="flex-grow pt-24 pb-24 px-4 max-w-6xl mx-auto w-full">
-        
-        <div id="globalLoader" class="fixed inset-0 z-[60] bg-darker flex flex-col items-center justify-center transition-opacity duration-300">
-            <div class="loader mb-4"></div>
-            <p class="text-slate-400 text-sm">Menyiapkan konten...</p>
-        </div>
-        
-        <div class="mb-6 relative">
-            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
-            <input type="text" id="searchInput" placeholder="Cari channel atau drama..." 
-                class="w-full bg-card border border-slate-700/50 text-slate-200 text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-primary/50">
-        </div>
-
-        <div id="appContent">
-            <div class="flex items-center justify-between mb-4">
-                <h2 id="sectionTitle" class="text-white font-bold text-lg flex items-center gap-2">Semua Channel</h2>
-            </div>
-            <div id="mainGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                </div>
-        </div>
-    </main>
-
-    <div id="playerOverlay" class="flex flex-col">
-        <div class="absolute top-0 left-0 w-full z-20 bg-gradient-to-b from-black/90 p-5 flex justify-between items-center">
-            <button onclick="app.closePlayer()" class="text-white bg-white/10 w-10 h-10 rounded-full"><i class="fas fa-arrow-left"></i></button>
-            <h2 id="playerTitle" class="text-white font-bold">Memutar...</h2>
-            <div class="w-10"></div>
-        </div>
-
-        <div class="flex-grow bg-black flex items-center justify-center">
-            <iframe id="tvFrame" src="" allowfullscreen></iframe>
-        </div>
-
-        <div id="dramaControls" class="bg-slate-900 p-4 hidden">
-            <p class="text-white text-xs mb-2">Pilih Episode:</p>
-            <div id="chapterList" class="flex gap-2 overflow-x-auto pb-2">
-                </div>
-        </div>
+<body>
+    <div class="container">
+        <h1>AI Chatbot Saya (Powered by Puter.js)</h1>
+        <div id="chat-history" class="chat-box"></div>
+        <input type="text" id="user-input" placeholder="Tanya sesuatu...">
+        <button onclick="sendMessage()">Kirim</button>
     </div>
 
     <script>
-        const app = {
-            mode: 'tv', // 'tv' or 'drama'
-            apiUrl: 'https://api.sansekai.my.id/api/melolo', // Integrasi API Melolo
-            
-            channels: [
-                { id: 'rcti', name: 'RCTI', group: 'MNC', bg: 'bg-blue-600', icon: 'fas fa-tv', embed: 'https://sindikasi.inews.id/embed/video/YWdlbnQ9ZGVza3RvcCZ1cmw9aHR0cHMlM0ElMkYlMkZlbWJlZC5yY3RpcGx1cy5jb20lMkZsaXZlJTJGcmN0aSUyRmluZXdzaWQmaGVpZ2h0PTEwMCUyNSZ3aWR0aD0xMDAlMjU=' },
-                { id: 'kompastv', name: 'Kompas TV', group: 'KG Media', bg: 'bg-sky-600', icon: 'fas fa-globe-asia', embed: 'https://www.youtube.com/embed/DOOrIxw5xOw?autoplay=1' },
-                { id: 'transtv', name: 'Trans TV', group: 'Trans', bg: 'bg-red-500', icon: 'fas fa-tv', embed: 'https://www.vidio.com/embed/203?autoplay=true' },
-                { id: 'sctv', name: 'SCTV', group: 'Emtek', bg: 'bg-purple-600', icon: 'fas fa-tv', embed: 'https://www.vidio.com/embed/204?autoplay=true' }
-            ],
-
-            init() {
-                document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e.target.value));
-                this.setMode('tv');
-                setTimeout(() => document.getElementById('globalLoader').classList.add('hidden'), 1000);
-            },
-
-            setMode(m) {
-                this.mode = m;
-                document.getElementById('btn-tv').className = m === 'tv' ? 'text-sm font-bold pb-1 tab-active' : 'text-sm font-bold pb-1 text-slate-400';
-                document.getElementById('btn-drama').className = m === 'drama' ? 'text-sm font-bold pb-1 tab-active' : 'text-sm font-bold pb-1 text-slate-400';
-                
-                if (m === 'tv') {
-                    document.getElementById('sectionTitle').innerText = "Live TV Indonesia";
-                    this.renderTV();
-                } else {
-                    document.getElementById('sectionTitle').innerText = "DramaBox Populer";
-                    this.fetchDramas();
-                }
-            },
-
-            renderTV() {
-                const grid = document.getElementById('mainGrid');
-                grid.innerHTML = this.channels.map(c => `
-                    <div onclick="app.playTV('${c.embed}', '${c.name}')" class="bg-card p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-3 cursor-pointer hover:scale-105 transition-all">
-                        <div class="w-12 h-12 ${c.bg} rounded-lg flex items-center justify-center text-xl text-white"><i class="${c.icon}"></i></div>
-                        <span class="text-white font-bold text-sm">${c.name}</span>
-                    </div>
-                `).join('');
-            },
-
-            async fetchDramas() {
-                const grid = document.getElementById('mainGrid');
-                grid.innerHTML = '<div class="col-span-full text-center p-10"><div class="loader mx-auto"></div></div>';
-                
-                try {
-                    const res = await fetch(`${this.apiUrl}/trending`);
-                    const data = await res.json();
-                    const dramas = data.books || []; // Penyesuaian struktur
-                    
-                    grid.innerHTML = dramas.map(d => `
-                        <div onclick="app.loadDramaDetail('${d.book_id}')" class="bg-card rounded-xl overflow-hidden border border-slate-700 cursor-pointer">
-                            <img src="${d.thumb_url}" class="w-full aspect-[3/4] object-cover">
-                            <div class="p-2">
-                                <p class="text-white font-bold text-xs truncate">${d.book_name}</p>
-                                <p class="text-slate-500 text-[10px]">${d.serial_count || ''} Chapters</p>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (e) {
-                    grid.innerHTML = `<p class="col-span-full text-center text-red-500">Gagal memuat drama. Pastikan API aktif.</p>`;
-                }
-            },
-
-            async handleSearch(query) {
-                if (this.mode === 'tv') return; // TV search manual logic can be added
-                if (query.length < 3) return this.fetchDramas(); // Kembali ke popular jika query pendek
-
-                const grid = document.getElementById('mainGrid');
-                grid.innerHTML = '<div class="col-span-full text-center p-10"><div class="loader mx-auto"></div></div>';
-                
-                try {
-                    const res = await fetch(`${this.apiUrl}/search?query=${query}`);
-                    const data = await res.json();
-                    const dramas = data.data?.search_data || data.books || []; // Penyesuaian struktur
-                    
-                    grid.innerHTML = dramas.map(d => `
-                        <div onclick="app.loadDramaDetail('${d.book_id}')" class="bg-card rounded-xl overflow-hidden border border-slate-700 cursor-pointer">
-                            <img src="${d.thumb_url}" class="w-full aspect-[3/4] object-cover">
-                            <div class="p-2">
-                                <p class="text-white font-bold text-xs truncate">${d.book_name}</p>
-                                <p class="text-slate-500 text-[10px]">${d.serial_count || ''} Chapters</p>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (e) {
-                    grid.innerHTML = `<p class="col-span-full text-center text-red-500">Gagal memuat hasil pencarian.</p>`;
-                }
-            },
-
-            async loadDramaDetail(id) {
-                try {
-                    const res = await fetch(`${this.apiUrl}/detail?bookId=${id}`);
-                    const detail = await res.json();
-                    const chapters = detail.data.video_list || []; // Penyesuaian struktur
-                    
-                    this.openDramaPlayer(chapters, detail.data.series_title);
-                } catch (e) { alert("Gagal memuat episode"); }
-            },
-
-            playTV(url, name) {
-                document.getElementById('playerTitle').innerText = name;
-                document.getElementById('dramaControls').classList.add('hidden');
-                document.getElementById('tvFrame').src = url;
-                document.getElementById('playerOverlay').style.display = 'flex';
-                document.body.classList.add('no-scroll');
-            },
-
-            openDramaPlayer(chapters, title) {
-                document.getElementById('playerTitle').innerText = title || "DramaBox";
-                document.getElementById('dramaControls').classList.remove('hidden');
-                
-                const list = document.getElementById('chapterList');
-                list.innerHTML = chapters.map((ch, idx) => `
-                    <button onclick="app.playChapter('${ch.vid}')" class="flex-shrink-0 bg-primary px-4 py-2 rounded text-xs font-bold text-white">
-                        Ep ${ch.vid_index || idx + 1}
-                    </button>
-                `).join('');
-
-                // Mainkan episode 1 otomatis
-                if (chapters.length > 0) this.playChapter(chapters[0].vid);
-                
-                document.getElementById('playerOverlay').style.display = 'flex';
-                document.body.classList.add('no-scroll');
-            },
-
-            async playChapter(vid) {
-                try {
-                    const res = await fetch(`${this.apiUrl}/stream?videoId=${vid}`);
-                    const data = await res.json();
-                    // Asumsi respons memiliki 'url' sebagai link streaming (mp4/m3u8)
-                    // Jika struktur berbeda, sesuaikan di sini (misal data.data.url)
-                    document.getElementById('tvFrame').src = data.url;
-                } catch (e) {
-                    alert("Gagal memuat streaming video.");
-                }
-            },
-
-            closePlayer() {
-                document.getElementById('playerOverlay').style.display = 'none';
-                document.getElementById('tvFrame').src = '';
-                document.body.classList.remove('no-scroll');
-            },
-
-            goHome() {
-                this.setMode('tv');
-            }
+        // Firebase Config (ganti dengan punyamu dari Firebase Console)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_BUCKET.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
-
-        document.addEventListener('DOMContentLoaded', () => app.init());
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
     </script>
+    <script src="script.js"></script>
 </body>
 </html>
